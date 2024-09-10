@@ -1,0 +1,61 @@
+#!/bin/bash
+
+# Echo the remaining arguments
+prompt="$1"
+
+explanation_flag=false
+for arg in "$@"; do
+  if [ "$arg" == "--explanation" ] || [ "$arg" == "-e" ]; then
+    explanation_flag=true
+    break
+  fi
+done
+
+if [ "$explanation_flag" == true ]; then
+  system_message="You are a helpful assistant, expert in command line bash commands. You need to provide a command to overcome the needs of the user. Provide a detailed explanation of the command."
+else
+  system_message="You are a helpful assistant, expert in command line bash commands. You need to provide a command to overcome the needs of the user. Try to avoid installing additional dependencies. The output should be only a valid bash command that can be executed in a terminal, no explanations."
+fi
+
+result=$(curl -s https://api.openai.com/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -d '{
+     "model": "gpt-4o-mini",
+     "messages": [
+        {"role": "system", "content": "'"$system_message"'"},
+        {"role": "user", "content": "'"$prompt"'"}
+      ],
+     "temperature": 0.7
+   }')
+
+   # Use jq to parse the JSON and extract the desired content
+message_content=$(echo "$result" | jq -r '.choices[0].message.content')
+git remote add origin git@github.com:FrBosquet/cgpt.git
+
+prompt_tokens=$(echo "$result" | jq -r '.usage.prompt_tokens')
+completion_tokens=$(echo "$result" | jq -r '.usage.completion_tokens')
+
+# Calculate the cost
+prompt_cost=$(echo "scale=10; $prompt_tokens * 0.15 / 1000000" | bc)
+completion_cost=$(echo "scale=10; $completion_tokens * 0.075 / 1000000" | bc)
+total_cost=$(echo "scale=10; $prompt_cost + $completion_cost" | bc)
+
+# Echo the extracted content
+echo
+echo "$message_content"
+echo
+# Echo the token usage and cost in grey
+echo -e "\033[1;30mTokens used: $prompt_tokens prompt | $completion_tokens completion\033[0m"
+echo -e "\033[1;30mCost: $total_cost USD\033[0m"
+
+if [ "$explanation_flag" == true ]; then
+  exit 0
+fi
+
+# Extract the command from message_content
+command=$(echo "$message_content" | sed -n '/^```bash/,/^```/p' | sed '1d;$d')
+
+echo
+# Execute the extracted command
+eval "$command"
