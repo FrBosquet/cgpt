@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# Echo the remaining arguments
-prompt="$1"
-
 explanation_flag=false
 for arg in "$@"; do
   if [ "$arg" == "--explanation" ] || [ "$arg" == "-e" ]; then
@@ -10,6 +7,25 @@ for arg in "$@"; do
     break
   fi
 done
+
+# Initialize variables
+prompt=""
+explanation_flag=false
+
+# Parse arguments
+while [[ "$#" -gt 0 ]]; do
+  case $1 in
+    -e|--explanation) explanation_flag=true ;;
+    *) prompt="$1" ;;
+  esac
+  shift
+done
+
+# Ensure prompt is not empty
+if [ -z "$prompt" ]; then
+  echo "Error: No prompt provided."
+  exit 1
+fi
 
 if [ "$explanation_flag" == true ]; then
   system_message="You are a helpful assistant, expert in command line bash commands. You need to provide a command to overcome the needs of the user. Provide a detailed explanation of the command."
